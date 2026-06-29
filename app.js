@@ -226,7 +226,7 @@ function applyFilters() {
   // 점수 기준 내림차순 정렬
   filtered.sort((a, b) => b.score - a.score);
 
-  const distLabel = currentDist >= 1000 ? `${currentDist / 1000}km` : `${currentDist}m`;
+  const distLabel = currentDist >= 1000 ? `${(currentDist / 1000).toFixed(1)}km` : `${currentDist}m`;
   resultStatus.textContent = `📍 현위치 기준 ${distLabel} · ${filtered.length}곳`;
 
   renderCards(filtered);
