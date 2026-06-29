@@ -104,8 +104,14 @@ async function fetchPlaces() {
       fetch(buildKakaoUrl('CE7'), { headers })
     ]);
 
-    if (!resFD6.ok) throw new Error(`API 오류: ${resFD6.status}`);
-    if (!resCE7.ok) throw new Error(`API 오류: ${resCE7.status}`);
+    if (!resFD6.ok) {
+      const body = await resFD6.text();
+      throw new Error(`API 오류: ${resFD6.status} - ${body}`);
+    }
+    if (!resCE7.ok) {
+      const body = await resCE7.text();
+      throw new Error(`API 오류: ${resCE7.status} - ${body}`);
+    }
 
     const [dataFD6, dataCE7] = await Promise.all([resFD6.json(), resCE7.json()]);
     const documents = [...(dataFD6.documents || []), ...(dataCE7.documents || [])];
