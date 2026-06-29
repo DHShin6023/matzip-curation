@@ -81,7 +81,7 @@ async function fetchPlaces() {
   cardList.innerHTML = '';
   resultStatus.textContent = '맛집을 불러오는 중...';
 
-  function buildKakaoUrl(code) {
+  function buildKakaoUrl(code, page = 1) {
     const url = new URL('https://dapi.kakao.com/v2/local/search/category.json');
     url.searchParams.set('category_group_code', code);
     url.searchParams.set('x', currentPos.lng);
@@ -89,34 +89,39 @@ async function fetchPlaces() {
     url.searchParams.set('radius', 5000);
     url.searchParams.set('sort', 'accuracy');
     url.searchParams.set('size', 15);
+    url.searchParams.set('page', page);
     return url.toString();
   }
 
   const headers = { Authorization: `KakaoAK ${KAKAO_API_KEY}` };
 
   try {
-    const [resFD6, resCE7] = await Promise.all([
-      fetch(buildKakaoUrl('FD6'), { headers }),
-      fetch(buildKakaoUrl('CE7'), { headers })
+    // FD6(음식점) 3페이지 + CE7(카페) 1페이지 병렬 호출
+    const responses = await Promise.all([
+      fetch(buildKakaoUrl('FD6', 1), { headers }),
+      fetch(buildKakaoUrl('FD6', 2), { headers }),
+      fetch(buildKakaoUrl('FD6', 3), { headers }),
+      fetch(buildKakaoUrl('CE7', 1), { headers }),
     ]);
 
-    if (!resFD6.ok) {
-      const body = await resFD6.text();
-      throw new Error(`API 오류: ${resFD6.status} - ${body}`);
-    }
-    if (!resCE7.ok) {
-      const body = await resCE7.text();
-      throw new Error(`API 오류: ${resCE7.status} - ${body}`);
+    for (const res of responses) {
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`API 오류: ${res.status} - ${body}`);
+      }
     }
 
-    const [dataFD6, dataCE7] = await Promise.all([resFD6.json(), resCE7.json()]);
-    const documents = [...(dataFD6.documents || []), ...(dataCE7.documents || [])];
+    const dataArr = await Promise.all(responses.map(r => r.json()));
+    const documents = dataArr.flatMap(d => d.documents || []);
+    // 중복 제거 (id 기준)
+    const seen = new Set();
+    const unique = documents.filter(d => seen.has(d.id) ? false : seen.add(d.id));
 
-    allPlaces = documents.map((d, i) => ({
+    allPlaces = unique.map((d, i) => ({
       name: d.place_name,
       category: mapCategory(d.category_name),
       distance: parseInt(d.distance, 10),
-      score: calcScore(parseInt(d.distance, 10), i, documents.length),
+      score: calcScore(parseInt(d.distance, 10), i, unique.length),
       address: d.road_address_name || d.address_name,
       id: d.id
     }));
