@@ -50,9 +50,77 @@ function showLoading(bool) {
   cardList.classList.toggle('hidden', bool);
 }
 
-/* ── 카카오 장소 검색 (Task 6에서 구현) ──────────────── */
-function fetchPlaces() {
-  // Task 6에서 구현 예정
+/* ── 카테고리 매핑 ───────────────────────────────────── */
+const CATEGORY_MAP = [
+  { keywords: ['한식'], label: '한식', emoji: '🍚' },
+  { keywords: ['일식', '초밥', '라멘', '돈까스'], label: '일식', emoji: '🍱' },
+  { keywords: ['중식'], label: '중식', emoji: '🥢' },
+  { keywords: ['카페', '커피', '디저트'], label: '카페', emoji: '☕' },
+  { keywords: ['패스트푸드', '버거', '치킨', '피자'], label: '패스트푸드', emoji: '🍔' },
+  { keywords: ['분식', '떡볶이', '김밥'], label: '분식', emoji: '🍜' }
+];
+
+function mapCategory(kakaoCategory) {
+  const name = kakaoCategory || '';
+  for (const c of CATEGORY_MAP) {
+    if (c.keywords.some(k => name.includes(k))) {
+      return { label: c.label, emoji: c.emoji };
+    }
+  }
+  return { label: '기타', emoji: '🍽️' };
+}
+
+/* ── 점수 계산 ───────────────────────────────────────── */
+// 거리 가까울수록, 카카오 accuracy 순서 앞일수록 높은 점수
+function calcScore(distance, index, total) {
+  const distScore = 1 - distance / 5000;           // 0~1 (가까울수록 높음)
+  const accScore  = 1 - index / (total || 1);      // 0~1 (카카오 정확도 순서 반영)
+  return distScore * 0.6 + accScore * 0.4;
+}
+
+/* ── 카카오 장소 검색 ────────────────────────────────── */
+async function fetchPlaces() {
+  if (!currentPos) return;
+  showLoading(true);
+  cardList.innerHTML = '';
+  resultStatus.textContent = '맛집을 불러오는 중...';
+
+  const url = new URL('https://dapi.kakao.com/v2/local/search/category.json');
+  url.searchParams.set('category_group_code', 'FD6,CE7');
+  url.searchParams.set('x', currentPos.lng);
+  url.searchParams.set('y', currentPos.lat);
+  url.searchParams.set('radius', 5000);
+  url.searchParams.set('sort', 'accuracy');
+  url.searchParams.set('size', 45);
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `KakaoAK ${KAKAO_API_KEY}` }
+    });
+
+    if (!res.ok) throw new Error(`API 오류: ${res.status}`);
+
+    const data = await res.json();
+    const documents = data.documents || [];
+
+    allPlaces = documents.map((d, i) => ({
+      name: d.place_name,
+      category: mapCategory(d.category_name),
+      distance: parseInt(d.distance, 10),
+      score: calcScore(parseInt(d.distance, 10), i, documents.length),
+      address: d.road_address_name || d.address_name,
+      id: d.id
+    }));
+
+    showLoading(false);
+    applyFilters();  // Task 7에서 구현
+
+  } catch (err) {
+    showLoading(false);
+    showToast('맛집 정보를 불러오지 못했습니다. 다시 시도해주세요.');
+    resultStatus.textContent = '오류가 발생했습니다.';
+    console.error(err);
+  }
 }
 
 /* ── GPS 현위치 요청 ─────────────────────────────────── */
