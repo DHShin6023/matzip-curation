@@ -1,0 +1,22 @@
+{
+  "name": "맛집 큐레이션",
+  "short_name": "맛집큐레이션",
+  "description": "현위치 기반 주변 맛집 랭킹",
+  "start_url": "/matzip-curation/",
+  "display": "standalone",
+  "background_color": "#FFF8F5",
+  "theme_color": "#FF5722",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
