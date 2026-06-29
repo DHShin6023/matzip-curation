@@ -1,4 +1,4 @@
-const CACHE_NAME = 'matzip-curation-v1';
+const CACHE_NAME = 'matzip-curation-v2';
 const STATIC_ASSETS = [
   '/matzip-curation/',
   '/matzip-curation/index.html',
