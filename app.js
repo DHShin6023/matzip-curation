@@ -4,7 +4,7 @@
    ========================================================= */
 
 // 상수
-const KAKAO_API_KEY = 'YOUR_KAKAO_REST_API_KEY'; // 카카오 개발자콘솔에서 발급
+const KAKAO_API_KEY = '208febb5d7dc050bfc092d66725454eb';
 
 // 상태
 let currentPos = null;
