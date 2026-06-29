@@ -53,11 +53,7 @@ function showLoading(bool) {
 /* ── 카테고리 매핑 ───────────────────────────────────── */
 const CATEGORY_MAP = [
   { keywords: ['한식'], label: '한식', emoji: '🍚' },
-  { keywords: ['일식', '초밥', '라멘', '돈까스'], label: '일식', emoji: '🍱' },
-  { keywords: ['중식'], label: '중식', emoji: '🥢' },
-  { keywords: ['카페', '커피', '디저트'], label: '카페', emoji: '☕' },
-  { keywords: ['패스트푸드', '버거', '치킨', '피자'], label: '패스트푸드', emoji: '🍔' },
-  { keywords: ['분식', '떡볶이', '김밥'], label: '분식', emoji: '🍜' }
+  { keywords: ['패스트푸드', '버거', '햄버거', '피자', '치킨', '핫도그', '샌드위치', '도넛'], label: '패스트푸드', emoji: '🍔' },
 ];
 
 function mapCategory(kakaoCategory) {
