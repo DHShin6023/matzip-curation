@@ -1,30 +1,28 @@
-/* =========================================================
-   맛집 큐레이션 PWA — app.js
-   Task 5: 앱 초기화, GPS, 뷰 전환
-   ========================================================= */
-
-// 상수
 const KAKAO_API_KEY = '208febb5d7dc050bfc092d66725454eb';
 
-// 상태
 let currentPos = null;
 let allPlaces = [];
 let currentDist = 1000;
 let currentCat = '전체';
 
-// DOM 참조
-const viewHome = document.getElementById('view-home');
-const viewResult = document.getElementById('view-result');
-const btnFind = document.getElementById('btn-find');
-const btnBack = document.getElementById('btn-back');
-const btnRefresh = document.getElementById('btn-refresh');
-const homeError = document.getElementById('home-error');
-const loading = document.getElementById('loading');
-const cardList = document.getElementById('card-list');
+const btnFind      = document.getElementById('btn-find');
+const btnBack      = document.getElementById('btn-back');
+const btnRefresh   = document.getElementById('btn-refresh');
+const homeError    = document.getElementById('home-error');
+const loading      = document.getElementById('loading');
+const cardList     = document.getElementById('card-list');
 const resultStatus = document.getElementById('result-status');
-const toast = document.getElementById('toast');
+const toast        = document.getElementById('toast');
+const sheet        = document.getElementById('detail-sheet');
+const sheetBackdrop = document.getElementById('sheet-backdrop');
 
-/* ── 뷰 전환 ─────────────────────────────────────────── */
+/* ── 유틸 ────────────────────────────────────────────── */
+function distLabel(meters) {
+  return meters >= 1000
+    ? `${(meters / 1000).toFixed(1)}km`
+    : `${meters}m`;
+}
+
 function showView(viewId) {
   document.querySelectorAll('.view').forEach(v => {
     v.classList.remove('active');
@@ -35,7 +33,6 @@ function showView(viewId) {
   target.classList.add('active');
 }
 
-/* ── 토스트 ──────────────────────────────────────────── */
 let toastTimer = null;
 function showToast(msg, duration = 2500) {
   toast.textContent = msg;
@@ -44,7 +41,6 @@ function showToast(msg, duration = 2500) {
   toastTimer = setTimeout(() => toast.classList.add('hidden'), duration);
 }
 
-/* ── 로딩 토글 ───────────────────────────────────────── */
 function showLoading(bool) {
   loading.classList.toggle('hidden', !bool);
   cardList.classList.toggle('hidden', bool);
@@ -53,103 +49,118 @@ function showLoading(bool) {
 /* ── 카테고리 매핑 ───────────────────────────────────── */
 const CATEGORY_MAP = [
   { keywords: ['한식'], label: '한식', emoji: '🍚' },
-  { keywords: ['패스트푸드', '버거', '햄버거', '피자', '치킨', '핫도그', '샌드위치', '도넛'], label: '패스트푸드', emoji: '🍔' },
+  {
+    keywords: ['패스트푸드', '버거', '햄버거', '피자', '치킨', '핫도그', '샌드위치', '도넛'],
+    label: '패스트푸드', emoji: '🍔'
+  },
 ];
 
 function mapCategory(kakaoCategory) {
   const name = kakaoCategory || '';
   for (const c of CATEGORY_MAP) {
-    if (c.keywords.some(k => name.includes(k))) {
-      return { label: c.label, emoji: c.emoji };
-    }
+    if (c.keywords.some(k => name.includes(k))) return { label: c.label, emoji: c.emoji };
   }
   return { label: '기타', emoji: '🍽️' };
 }
 
-/* ── 점수 계산 ───────────────────────────────────────── */
-// 거리 가까울수록, 카카오 accuracy 순서 앞일수록 높은 점수
-function calcScore(distance, index, total) {
-  const distScore = 1 - distance / 5000;           // 0~1 (가까울수록 높음)
-  const accScore  = 1 - index / (total || 1);      // 0~1 (카카오 정확도 순서 반영)
-  return distScore * 0.6 + accScore * 0.4;
+/* ── 점수 계산 (소스 내 상대 순위 기반) ──────────────── */
+function calcScore(distance, rankInBatch, batchSize) {
+  const distScore = 1 - distance / 5000;
+  const accScore  = 1 - rankInBatch / Math.max(batchSize, 1);
+  return distScore * 0.55 + accScore * 0.45;
 }
 
-/* ── 카카오 장소 검색 ────────────────────────────────── */
+/* ── 카카오 API URL 빌더 ─────────────────────────────── */
+function buildCategoryUrl(code, page) {
+  const url = new URL('https://dapi.kakao.com/v2/local/search/category.json');
+  url.searchParams.set('category_group_code', code);
+  url.searchParams.set('x', currentPos.lng);
+  url.searchParams.set('y', currentPos.lat);
+  url.searchParams.set('radius', 5000);
+  url.searchParams.set('sort', 'accuracy');
+  url.searchParams.set('size', 15);
+  url.searchParams.set('page', page);
+  return url.toString();
+}
+
+function buildKeywordUrl(query) {
+  const url = new URL('https://dapi.kakao.com/v2/local/search/keyword.json');
+  url.searchParams.set('query', query);
+  url.searchParams.set('x', currentPos.lng);
+  url.searchParams.set('y', currentPos.lat);
+  url.searchParams.set('radius', 5000);
+  url.searchParams.set('sort', 'accuracy');
+  url.searchParams.set('size', 15);
+  return url.toString();
+}
+
+/* ── 맛집 데이터 수집 ────────────────────────────────── */
 async function fetchPlaces() {
   if (!currentPos) return;
   showLoading(true);
   cardList.innerHTML = '';
   resultStatus.textContent = '맛집을 불러오는 중...';
 
-  function buildCategoryUrl(code, page = 1) {
-    const url = new URL('https://dapi.kakao.com/v2/local/search/category.json');
-    url.searchParams.set('category_group_code', code);
-    url.searchParams.set('x', currentPos.lng);
-    url.searchParams.set('y', currentPos.lat);
-    url.searchParams.set('radius', 5000);
-    url.searchParams.set('sort', 'accuracy');
-    url.searchParams.set('size', 15);
-    url.searchParams.set('page', page);
-    return url.toString();
-  }
-
-  function buildKeywordUrl(query) {
-    const url = new URL('https://dapi.kakao.com/v2/local/search/keyword.json');
-    url.searchParams.set('query', query);
-    url.searchParams.set('x', currentPos.lng);
-    url.searchParams.set('y', currentPos.lat);
-    url.searchParams.set('radius', 5000);
-    url.searchParams.set('sort', 'accuracy');
-    url.searchParams.set('size', 15);
-    return url.toString();
-  }
-
   const headers = { Authorization: `KakaoAK ${KAKAO_API_KEY}` };
 
   try {
-    // FD6 정확도순 2페이지(30개) + CE7 1페이지 + 패스트푸드 키워드 검색
+    // FD6 정확도순 3페이지(45개) + CE7 1페이지(15개) + 패스트푸드 키워드(15개)
     const responses = await Promise.all([
       fetch(buildCategoryUrl('FD6', 1), { headers }),
       fetch(buildCategoryUrl('FD6', 2), { headers }),
+      fetch(buildCategoryUrl('FD6', 3), { headers }),
       fetch(buildCategoryUrl('CE7', 1), { headers }),
-      fetch(buildKeywordUrl('패스트푸드'), { headers }),
+      fetch(buildKeywordUrl('패스트푸드'),  { headers }),
     ]);
 
     for (const res of responses) {
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`API 오류: ${res.status} - ${body}`);
-      }
+      if (!res.ok) throw new Error(`카카오 API 오류 (${res.status})`);
     }
 
-    const dataArr = await Promise.all(responses.map(r => r.json()));
-    const documents = dataArr.flatMap(d => d.documents || []);
-    // 중복 제거 (id 기준)
-    const seen = new Set();
-    const unique = documents.filter(d => seen.has(d.id) ? false : seen.add(d.id));
+    const [d1, d2, d3, dCE7, dFF] = await Promise.all(responses.map(r => r.json()));
 
-    allPlaces = unique.map((d, i) => ({
-      name: d.place_name,
-      category: mapCategory(d.category_name),
-      distance: parseInt(d.distance, 10),
-      score: calcScore(parseInt(d.distance, 10), i, unique.length),
-      address: d.road_address_name || d.address_name,
-      phone: d.phone || '',
-      placeUrl: d.place_url || '',
-      id: d.id
-    }));
+    const seenIds = new Set();
+    const places  = [];
 
+    function addBatch(docs) {
+      const size = docs.length;
+      docs.forEach((d, i) => {
+        if (seenIds.has(d.id)) return;
+        seenIds.add(d.id);
+        const dist = parseInt(d.distance, 10);
+        places.push({
+          name:     d.place_name,
+          category: mapCategory(d.category_name),
+          distance: dist,
+          score:    calcScore(dist, i, size),
+          address:  d.road_address_name || d.address_name || '',
+          phone:    d.phone    || '',
+          placeUrl: d.place_url || '',
+          id:       d.id,
+        });
+      });
+    }
+
+    // FD6 3페이지를 하나의 글로벌 랭킹 풀로 취급 (페이지 순서 = 카카오 정확도 순)
+    addBatch([...(d1.documents||[]), ...(d2.documents||[]), ...(d3.documents||[])]);
+    // CE7(카페)는 별도 풀로 점수 계산
+    addBatch(dCE7.documents || []);
+    // 패스트푸드 키워드 결과도 별도 풀
+    addBatch(dFF.documents  || []);
+
+    allPlaces = places;
     showLoading(false);
-    applyFilters();  // Task 7에서 구현
+    applyFilters();
 
   } catch (err) {
     showLoading(false);
-    resultStatus.textContent = '오류: ' + err.message;
+    resultStatus.textContent = '맛집 정보를 불러오지 못했습니다.';
+    showToast('잠시 후 다시 시도해주세요.');
     console.error(err);
   }
 }
 
-/* ── GPS 현위치 요청 ─────────────────────────────────── */
+/* ── GPS ─────────────────────────────────────────────── */
 function getLocation() {
   homeError.classList.add('hidden');
   homeError.textContent = '';
@@ -177,7 +188,7 @@ function getLocation() {
       const messages = {
         1: '위치 권한을 허용해주세요. (설정 > Safari > 위치)',
         2: '위치를 가져올 수 없습니다. 다시 시도해주세요.',
-        3: '위치 요청 시간이 초과됐습니다.'
+        3: '위치 요청 시간이 초과됐습니다.',
       };
       homeError.textContent = messages[err.code] || '위치 오류가 발생했습니다.';
       homeError.classList.remove('hidden');
@@ -186,23 +197,19 @@ function getLocation() {
   );
 }
 
-/* ── 이벤트 연결 ─────────────────────────────────────── */
+/* ── 이벤트 ──────────────────────────────────────────── */
 btnFind.addEventListener('click', getLocation);
 btnBack.addEventListener('click', () => showView('view-home'));
-btnRefresh.addEventListener('click', () => {
-  allPlaces = [];
-  fetchPlaces();
-});
+btnRefresh.addEventListener('click', () => { allPlaces = []; fetchPlaces(); });
 
-/* ── 서비스 워커 등록 ────────────────────────────────── */
+/* ── 서비스 워커 ─────────────────────────────────────── */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/matzip-curation/sw.js');
 }
 
-/* ── 네이버 블로그 링크 생성 ─────────────────────────── */
-function naverBlogUrl(placeName) {
-  const query = encodeURIComponent(`${placeName} 맛집`);
-  return `https://search.naver.com/search.naver?where=blog&query=${query}`;
+/* ── 네이버 블로그 링크 ──────────────────────────────── */
+function naverBlogUrl(name) {
+  return `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(name + ' 맛집')}`;
 }
 
 /* ── 카드 렌더링 ─────────────────────────────────────── */
@@ -221,18 +228,13 @@ function renderCards(places) {
   places.forEach((place, idx) => {
     const card = document.createElement('div');
     card.className = 'place-card';
-
-    const distLabel = place.distance >= 1000
-      ? `${(place.distance / 1000).toFixed(1)}km`
-      : `${place.distance}m`;
-
     card.innerHTML = `
       <div class="card-top">
         <span class="card-rank">${idx + 1}</span>
         <span class="card-category">${place.category.emoji} ${place.category.label}</span>
       </div>
       <div class="card-name"></div>
-      <div class="card-distance">📍 ${distLabel}</div>
+      <div class="card-distance">📍 ${distLabel(place.distance)}</div>
       <div class="card-footer">
         <a class="btn-blog" href="${naverBlogUrl(place.name)}" target="_blank" rel="noopener">블로그 후기 →</a>
       </div>`;
@@ -241,39 +243,37 @@ function renderCards(places) {
       if (e.target.closest('.btn-blog')) return;
       openSheet(place);
     });
-
     cardList.appendChild(card);
   });
 }
 
 /* ── 바텀시트 ────────────────────────────────────────── */
-const sheet = document.getElementById('detail-sheet');
-const sheetBackdrop = document.getElementById('sheet-backdrop');
-
 function openSheet(place) {
-  const distLabel = place.distance >= 1000
-    ? `${(place.distance / 1000).toFixed(1)}km`
-    : `${place.distance}m`;
-
   document.getElementById('sheet-category').textContent = `${place.category.emoji} ${place.category.label}`;
-  document.getElementById('sheet-name').textContent = place.name;
-  document.getElementById('sheet-distance').textContent = `📍 ${distLabel}`;
+  document.getElementById('sheet-name').textContent     = place.name;
+  document.getElementById('sheet-distance').textContent = `📍 ${distLabel(place.distance)}`;
 
-  const addrEl = document.getElementById('sheet-address');
-  addrEl.textContent = place.address || '';
-  addrEl.parentElement.classList.toggle('hidden', !place.address);
+  const addrRow = document.getElementById('sheet-address').parentElement;
+  document.getElementById('sheet-address').textContent = place.address;
+  addrRow.classList.toggle('hidden', !place.address);
 
-  const phoneEl = document.getElementById('sheet-phone');
+  const phoneRow = document.getElementById('sheet-phone').parentElement;
+  const phoneEl  = document.getElementById('sheet-phone');
   if (place.phone) {
-    phoneEl.href = `tel:${place.phone}`;
+    phoneEl.href        = `tel:${place.phone}`;
     phoneEl.textContent = place.phone;
-    phoneEl.parentElement.classList.remove('hidden');
+    phoneRow.classList.remove('hidden');
   } else {
-    phoneEl.parentElement.classList.add('hidden');
+    phoneRow.classList.add('hidden');
   }
 
   const kakaoBtn = document.getElementById('sheet-kakao');
-  kakaoBtn.href = place.placeUrl || '#';
+  if (place.placeUrl) {
+    kakaoBtn.href = place.placeUrl;
+    kakaoBtn.classList.remove('hidden');
+  } else {
+    kakaoBtn.classList.add('hidden');
+  }
 
   document.getElementById('sheet-blog').href = naverBlogUrl(place.name);
 
@@ -301,18 +301,18 @@ function applyFilters() {
     filtered = filtered.filter(p => p.category.label === currentCat);
   }
 
-  // 점수 기준 내림차순 정렬 후 최대 30개
   filtered.sort((a, b) => b.score - a.score);
   filtered = filtered.slice(0, 30);
 
-  const distLabel = currentDist >= 1000 ? `${(currentDist / 1000).toFixed(1)}km` : `${currentDist}m`;
-  resultStatus.textContent = `📍 현위치 기준 ${distLabel} · ${filtered.length}곳`;
+  const label = currentDist >= 1000
+    ? `${(currentDist / 1000).toFixed(1)}km`
+    : `${currentDist}m`;
+  resultStatus.textContent = `📍 현위치 기준 ${label} · ${filtered.length}곳`;
 
   renderCards(filtered);
 }
 
 /* ── 필터 버튼 이벤트 ────────────────────────────────── */
-// 거리 필터
 document.querySelectorAll('.dist-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.dist-btn').forEach(b => b.classList.remove('active'));
@@ -322,7 +322,6 @@ document.querySelectorAll('.dist-btn').forEach(btn => {
   });
 });
 
-// 카테고리 필터
 document.querySelectorAll('.cat-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));

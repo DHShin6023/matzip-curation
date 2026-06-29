@@ -1,4 +1,4 @@
-const CACHE_NAME = 'matzip-curation-v2';
+const CACHE_NAME = 'matzip-curation-v3';
 const STATIC_ASSETS = [
   '/matzip-curation/',
   '/matzip-curation/index.html',
@@ -11,20 +11,23 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    caches.keys()
+      .then(keys =>
+        Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      )
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', e => {
-  // API 요청은 캐시하지 않음
   if (e.request.url.includes('dapi.kakao.com')) return;
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
