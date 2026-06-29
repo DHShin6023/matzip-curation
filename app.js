@@ -92,7 +92,7 @@ async function fetchPlaces() {
     url.searchParams.set('y', currentPos.lat);
     url.searchParams.set('radius', 5000);
     url.searchParams.set('sort', 'accuracy');
-    url.searchParams.set('size', 45);
+    url.searchParams.set('size', 15);
     return url.toString();
   }
 
