@@ -172,3 +172,83 @@ btnRefresh.addEventListener('click', () => {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/matzip-curation/sw.js');
 }
+
+/* ── 네이버 블로그 링크 생성 ─────────────────────────── */
+function naverBlogUrl(placeName) {
+  const query = encodeURIComponent(`${placeName} 맛집`);
+  return `https://search.naver.com/search.naver?where=blog&query=${query}`;
+}
+
+/* ── 카드 렌더링 ─────────────────────────────────────── */
+function renderCards(places) {
+  cardList.innerHTML = '';
+
+  if (places.length === 0) {
+    cardList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <p>이 반경에 맛집이 없어요.<br>거리를 넓혀보세요!</p>
+      </div>`;
+    return;
+  }
+
+  places.forEach((place, idx) => {
+    const card = document.createElement('div');
+    card.className = 'place-card';
+
+    const distLabel = place.distance >= 1000
+      ? `${(place.distance / 1000).toFixed(1)}km`
+      : `${place.distance}m`;
+
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="card-rank">${idx + 1}</span>
+        <span class="card-category">${place.category.emoji} ${place.category.label}</span>
+      </div>
+      <div class="card-name">${place.name}</div>
+      <div class="card-distance">📍 ${distLabel}</div>
+      <div class="card-footer">
+        <a class="btn-blog" href="${naverBlogUrl(place.name)}" target="_blank" rel="noopener">블로그 후기 →</a>
+      </div>`;
+
+    cardList.appendChild(card);
+  });
+}
+
+/* ── 필터 적용 ───────────────────────────────────────── */
+function applyFilters() {
+  let filtered = allPlaces.filter(p => p.distance <= currentDist);
+
+  if (currentCat !== '전체') {
+    filtered = filtered.filter(p => p.category.label === currentCat);
+  }
+
+  // 점수 기준 내림차순 정렬
+  filtered.sort((a, b) => b.score - a.score);
+
+  const distLabel = currentDist >= 1000 ? `${currentDist / 1000}km` : `${currentDist}m`;
+  resultStatus.textContent = `📍 현위치 기준 ${distLabel} · ${filtered.length}곳`;
+
+  renderCards(filtered);
+}
+
+/* ── 필터 버튼 이벤트 ────────────────────────────────── */
+// 거리 필터
+document.querySelectorAll('.dist-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.dist-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentDist = parseInt(btn.dataset.dist, 10);
+    applyFilters();
+  });
+});
+
+// 카테고리 필터
+document.querySelectorAll('.cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCat = btn.dataset.cat;
+    applyFilters();
+  });
+});
