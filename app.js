@@ -85,23 +85,30 @@ async function fetchPlaces() {
   cardList.innerHTML = '';
   resultStatus.textContent = '맛집을 불러오는 중...';
 
-  const url = new URL('https://dapi.kakao.com/v2/local/search/category.json');
-  url.searchParams.set('category_group_code', 'FD6,CE7');
-  url.searchParams.set('x', currentPos.lng);
-  url.searchParams.set('y', currentPos.lat);
-  url.searchParams.set('radius', 5000);
-  url.searchParams.set('sort', 'accuracy');
-  url.searchParams.set('size', 45);
+  function buildKakaoUrl(code) {
+    const url = new URL('https://dapi.kakao.com/v2/local/search/category.json');
+    url.searchParams.set('category_group_code', code);
+    url.searchParams.set('x', currentPos.lng);
+    url.searchParams.set('y', currentPos.lat);
+    url.searchParams.set('radius', 5000);
+    url.searchParams.set('sort', 'accuracy');
+    url.searchParams.set('size', 45);
+    return url.toString();
+  }
+
+  const headers = { Authorization: `KakaoAK ${KAKAO_API_KEY}` };
 
   try {
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `KakaoAK ${KAKAO_API_KEY}` }
-    });
+    const [resFD6, resCE7] = await Promise.all([
+      fetch(buildKakaoUrl('FD6'), { headers }),
+      fetch(buildKakaoUrl('CE7'), { headers })
+    ]);
 
-    if (!res.ok) throw new Error(`API 오류: ${res.status}`);
+    if (!resFD6.ok) throw new Error(`API 오류: ${resFD6.status}`);
+    if (!resCE7.ok) throw new Error(`API 오류: ${resCE7.status}`);
 
-    const data = await res.json();
-    const documents = data.documents || [];
+    const [dataFD6, dataCE7] = await Promise.all([resFD6.json(), resCE7.json()]);
+    const documents = [...(dataFD6.documents || []), ...(dataCE7.documents || [])];
 
     allPlaces = documents.map((d, i) => ({
       name: d.place_name,
@@ -205,11 +212,12 @@ function renderCards(places) {
         <span class="card-rank">${idx + 1}</span>
         <span class="card-category">${place.category.emoji} ${place.category.label}</span>
       </div>
-      <div class="card-name">${place.name}</div>
+      <div class="card-name"></div>
       <div class="card-distance">📍 ${distLabel}</div>
       <div class="card-footer">
         <a class="btn-blog" href="${naverBlogUrl(place.name)}" target="_blank" rel="noopener">블로그 후기 →</a>
       </div>`;
+    card.querySelector('.card-name').textContent = place.name;
 
     cardList.appendChild(card);
   });
