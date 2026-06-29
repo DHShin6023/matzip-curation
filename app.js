@@ -81,27 +81,38 @@ async function fetchPlaces() {
   cardList.innerHTML = '';
   resultStatus.textContent = '맛집을 불러오는 중...';
 
-  function buildKakaoUrl(code, page = 1) {
+  function buildCategoryUrl(code, page = 1) {
     const url = new URL('https://dapi.kakao.com/v2/local/search/category.json');
     url.searchParams.set('category_group_code', code);
     url.searchParams.set('x', currentPos.lng);
     url.searchParams.set('y', currentPos.lat);
     url.searchParams.set('radius', 5000);
-    url.searchParams.set('sort', 'distance');
+    url.searchParams.set('sort', 'accuracy');
     url.searchParams.set('size', 15);
     url.searchParams.set('page', page);
+    return url.toString();
+  }
+
+  function buildKeywordUrl(query) {
+    const url = new URL('https://dapi.kakao.com/v2/local/search/keyword.json');
+    url.searchParams.set('query', query);
+    url.searchParams.set('x', currentPos.lng);
+    url.searchParams.set('y', currentPos.lat);
+    url.searchParams.set('radius', 5000);
+    url.searchParams.set('sort', 'accuracy');
+    url.searchParams.set('size', 15);
     return url.toString();
   }
 
   const headers = { Authorization: `KakaoAK ${KAKAO_API_KEY}` };
 
   try {
-    // FD6(음식점) 3페이지 + CE7(카페) 1페이지 병렬 호출
+    // FD6 정확도순 2페이지(30개) + CE7 1페이지 + 패스트푸드 키워드 검색
     const responses = await Promise.all([
-      fetch(buildKakaoUrl('FD6', 1), { headers }),
-      fetch(buildKakaoUrl('FD6', 2), { headers }),
-      fetch(buildKakaoUrl('FD6', 3), { headers }),
-      fetch(buildKakaoUrl('CE7', 1), { headers }),
+      fetch(buildCategoryUrl('FD6', 1), { headers }),
+      fetch(buildCategoryUrl('FD6', 2), { headers }),
+      fetch(buildCategoryUrl('CE7', 1), { headers }),
+      fetch(buildKeywordUrl('패스트푸드'), { headers }),
     ]);
 
     for (const res of responses) {
@@ -237,8 +248,9 @@ function applyFilters() {
     filtered = filtered.filter(p => p.category.label === currentCat);
   }
 
-  // 점수 기준 내림차순 정렬
+  // 점수 기준 내림차순 정렬 후 최대 30개
   filtered.sort((a, b) => b.score - a.score);
+  filtered = filtered.slice(0, 30);
 
   const distLabel = currentDist >= 1000 ? `${(currentDist / 1000).toFixed(1)}km` : `${currentDist}m`;
   resultStatus.textContent = `📍 현위치 기준 ${distLabel} · ${filtered.length}곳`;
