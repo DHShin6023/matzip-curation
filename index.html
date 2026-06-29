@@ -65,6 +65,31 @@
 
   </div>
 
+  <!-- 바텀시트 배경 -->
+  <div id="sheet-backdrop" class="sheet-backdrop hidden"></div>
+
+  <!-- 바텀시트 -->
+  <div id="detail-sheet" class="detail-sheet hidden">
+    <div class="sheet-handle"></div>
+    <button id="sheet-close" class="sheet-close" aria-label="닫기">✕</button>
+    <div id="sheet-category" class="sheet-category"></div>
+    <div id="sheet-name" class="sheet-name"></div>
+    <div id="sheet-distance" class="sheet-distance"></div>
+    <div class="sheet-divider"></div>
+    <div class="sheet-info-row">
+      <span class="sheet-info-icon">📍</span>
+      <span id="sheet-address" class="sheet-info-text"></span>
+    </div>
+    <div class="sheet-info-row">
+      <span class="sheet-info-icon">📞</span>
+      <a id="sheet-phone" class="sheet-info-text sheet-phone-link"></a>
+    </div>
+    <div class="sheet-actions">
+      <a id="sheet-kakao" class="btn-kakao" target="_blank" rel="noopener">카카오맵 전체정보 →</a>
+      <a id="sheet-blog" class="btn-blog" target="_blank" rel="noopener">블로그 후기 →</a>
+    </div>
+  </div>
+
   <!-- 토스트 -->
   <div id="toast" class="toast hidden"></div>
 

@@ -214,6 +214,13 @@ body {
   gap: 8px;
   box-shadow: 0 1px 6px rgba(0,0,0,0.07);
   border: 1px solid var(--border);
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+
+.place-card:active {
+  box-shadow: 0 2px 12px rgba(255,87,34,0.18);
+  border-color: var(--primary);
 }
 
 .card-top {
@@ -300,3 +307,125 @@ body {
 }
 
 .hidden { display: none !important; }
+
+/* ── 바텀시트 ── */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+}
+
+.detail-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border-radius: 20px 20px 0 0;
+  padding: 16px 20px 40px;
+  z-index: 201;
+  transform: translateY(100%);
+  transition: transform 0.28s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-sheet.open {
+  transform: translateY(0);
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: #DDD;
+  border-radius: 2px;
+  margin: 0 auto 8px;
+}
+
+.sheet-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-sub);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.sheet-category {
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.sheet-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sheet-distance {
+  font-size: 14px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.sheet-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.sheet-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.sheet-info-icon {
+  width: 20px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.sheet-phone-link {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.sheet-phone-link:active {
+  color: var(--primary);
+}
+
+.sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-kakao {
+  display: block;
+  text-align: center;
+  background: var(--primary);
+  color: #fff;
+  padding: 13px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sheet-actions .btn-blog {
+  display: block;
+  text-align: center;
+  padding: 13px;
+  border-radius: 12px;
+  font-size: 15px;
+}

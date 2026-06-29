@@ -134,6 +134,8 @@ async function fetchPlaces() {
       distance: parseInt(d.distance, 10),
       score: calcScore(parseInt(d.distance, 10), i, unique.length),
       address: d.road_address_name || d.address_name,
+      phone: d.phone || '',
+      placeUrl: d.place_url || '',
       id: d.id
     }));
 
@@ -235,10 +237,61 @@ function renderCards(places) {
         <a class="btn-blog" href="${naverBlogUrl(place.name)}" target="_blank" rel="noopener">블로그 후기 →</a>
       </div>`;
     card.querySelector('.card-name').textContent = place.name;
+    card.addEventListener('click', e => {
+      if (e.target.closest('.btn-blog')) return;
+      openSheet(place);
+    });
 
     cardList.appendChild(card);
   });
 }
+
+/* ── 바텀시트 ────────────────────────────────────────── */
+const sheet = document.getElementById('detail-sheet');
+const sheetBackdrop = document.getElementById('sheet-backdrop');
+
+function openSheet(place) {
+  const distLabel = place.distance >= 1000
+    ? `${(place.distance / 1000).toFixed(1)}km`
+    : `${place.distance}m`;
+
+  document.getElementById('sheet-category').textContent = `${place.category.emoji} ${place.category.label}`;
+  document.getElementById('sheet-name').textContent = place.name;
+  document.getElementById('sheet-distance').textContent = `📍 ${distLabel}`;
+
+  const addrEl = document.getElementById('sheet-address');
+  addrEl.textContent = place.address || '';
+  addrEl.parentElement.classList.toggle('hidden', !place.address);
+
+  const phoneEl = document.getElementById('sheet-phone');
+  if (place.phone) {
+    phoneEl.href = `tel:${place.phone}`;
+    phoneEl.textContent = place.phone;
+    phoneEl.parentElement.classList.remove('hidden');
+  } else {
+    phoneEl.parentElement.classList.add('hidden');
+  }
+
+  const kakaoBtn = document.getElementById('sheet-kakao');
+  kakaoBtn.href = place.placeUrl || '#';
+
+  document.getElementById('sheet-blog').href = naverBlogUrl(place.name);
+
+  sheet.classList.remove('hidden');
+  sheetBackdrop.classList.remove('hidden');
+  requestAnimationFrame(() => sheet.classList.add('open'));
+}
+
+function closeSheet() {
+  sheet.classList.remove('open');
+  setTimeout(() => {
+    sheet.classList.add('hidden');
+    sheetBackdrop.classList.add('hidden');
+  }, 280);
+}
+
+document.getElementById('sheet-close').addEventListener('click', closeSheet);
+sheetBackdrop.addEventListener('click', closeSheet);
 
 /* ── 필터 적용 ───────────────────────────────────────── */
 function applyFilters() {
